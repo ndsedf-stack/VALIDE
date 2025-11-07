@@ -123,9 +123,9 @@ interface MuscleVolumeTrendDataPoint {
   [key: string]: number | Date; 
 }
 
-
 const muscleGroups = ["Pectoraux", "Dos", "Quadriceps", "Ischios", "Fessiers", "Épaules", "Biceps", "Triceps", "Avant-bras"];
 
+// Fix: Add missing 'rest' property to SupersetExerciseTemplate for programData initialization.
 const programData: ProgramData = {
   blocks: [
     { id: 1, name: "BLOC 1 (S1-5): FONDATION TECHNIQUE", weeks: [1, 2, 3, 4, 5], technique: { name: 'Tempo & Pauses', desc: "Tempo 3-1-2 et pauses stratégiques." } },
@@ -219,6 +219,28 @@ const programData: ProgramData = {
 
 const DB_KEY = 'hybridMaster51_data_v4';
 
+/**
+ * Type guard to check if an exercise is a CompletedSupersetBlock.
+ */
+function isCompletedSupersetBlock(exercise: CompletedWorkoutExercise): exercise is CompletedSupersetBlock {
+  return (exercise as CompletedSupersetBlock).type === 'superset';
+}
+
+/**
+ * Type guard to check if an exercise is a SupersetBlockTemplate.
+ */
+function isProgramSupersetBlockTemplate(exercise: ProgramExerciseTemplate): exercise is SupersetBlockTemplate {
+  return (exercise as SupersetBlockTemplate).type === 'superset';
+}
+
+/**
+ * Type guard to check if an exercise is a BaseExerciseTemplate.
+ */
+function isProgramBaseExerciseTemplate(exercise: ProgramExerciseTemplate): exercise is BaseExerciseTemplate {
+  return !('type' in exercise); // BaseExerciseTemplate does not have a 'type' property
+}
+
+
 const generateMockHistory = (): WorkoutHistory => {
     const mockHistory: WorkoutHistory = {};
     const today = new Date();
@@ -276,7 +298,7 @@ const generateMockHistory = (): WorkoutHistory => {
                     };
 
                     // Fix: Use type guard for ProgramExerciseTemplate
-                    if ('type' in exoTemplate && exoTemplate.type === 'superset') {
+                    if (isProgramSupersetBlockTemplate(exoTemplate)) {
                         // For supersets, map exercises within the superset
                         return { 
                             ...exoTemplate, 
@@ -346,7 +368,7 @@ const useWorkoutHistory = () => {
             };
             workout.exercises.forEach((exo: CompletedWorkoutExercise) => { 
                 // Fix: Use type guard for CompletedWorkoutExercise
-                if ('type' in exo && exo.type === 'superset') {
+                if (isCompletedSupersetBlock(exo)) {
                     exo.exercises.forEach(processExo);
                 } else {
                     processExo(exo as CompletedBaseExercise); // exo is CompletedBaseExercise
@@ -375,7 +397,7 @@ const useWorkoutHistory = () => {
                     }
                 };
                 // Fix: Use type guard for CompletedWorkoutExercise
-                if ('type' in exo && exo.type === 'superset') exo.exercises.forEach(processExo);
+                if (isCompletedSupersetBlock(exo)) exo.exercises.forEach(processExo);
                 else processExo(exo as CompletedBaseExercise); // exo is CompletedBaseExercise
             });
         });
@@ -401,7 +423,7 @@ const useWorkoutHistory = () => {
                     }
                 };
                 // Fix: Use type guard for CompletedWorkoutExercise
-                if ('type' in exo && exo.type === 'superset') exo.exercises.forEach(processExo);
+                if (isCompletedSupersetBlock(exo)) exo.exercises.forEach(processExo);
                 else processExo(exo as CompletedBaseExercise); // exo is CompletedBaseExercise
             });
         });
@@ -431,7 +453,7 @@ const useWorkoutHistory = () => {
                     }
                 };
                 // Fix: Use type guard for CompletedWorkoutExercise
-                if ('type' in exo && exo.type === 'superset') exo.exercises.forEach(processExo);
+                if (isCompletedSupersetBlock(exo)) exo.exercises.forEach(processExo);
                 else processExo(exo as CompletedBaseExercise); // exo is CompletedBaseExercise
             });
         });
@@ -459,7 +481,7 @@ const useWorkoutHistory = () => {
                     }
                 };
                 // Fix: Use type guard for CompletedWorkoutExercise
-                if ('type' in exo && exo.type === 'superset') exo.exercises.forEach(processExo);
+                if (isCompletedSupersetBlock(exo)) exo.exercises.forEach(processExo);
                 else processExo(exo as CompletedBaseExercise); // exo is CompletedBaseExercise
             });
         });
@@ -495,7 +517,7 @@ const useWorkoutHistory = () => {
 
             for (const exo of workout.exercises) {
                 // Fix: Use type guard for CompletedWorkoutExercise
-                if ('type' in exo && exo.type === 'superset' && exo.exercises) {
+                if (isCompletedSupersetBlock(exo) && exo.exercises) {
                     if (exo.exercises.some(processExo)) return lastLoggedWeight;
                 } else {
                     if (processExo(exo as CompletedBaseExercise)) return lastLoggedWeight; // Type assertion for exo
@@ -531,7 +553,7 @@ const MuscleGroupHeatmap = ({ workout }: { workout: WorkoutTemplate | null }) =>
 
     workout.exercises.forEach(exo => {
         // Fix: Use type guard for ProgramExerciseTemplate
-        if ('type' in exo && exo.type === 'superset') {
+        if (isProgramSupersetBlockTemplate(exo)) {
             exo.exercises.forEach(subExo => {
                 if (subExo.muscles) {
                     subExo.muscles.primary.forEach(m => workedMuscles.primary.add(m));
@@ -573,7 +595,7 @@ const ProgressionChart = ({ exerciseId, exerciseName, history }: { exerciseId: s
             let maxWeight = 0;
             w.exercises.forEach((exo: CompletedWorkoutExercise) => { // Explicitly type `exo`
                 // Fix: Use type guard for CompletedWorkoutExercise
-                const subExercises = ('type' in exo && exo.type === 'superset') ? exo.exercises : [exo as CompletedBaseExercise]; // Type assertion for single exercise
+                const subExercises = isCompletedSupersetBlock(exo) ? exo.exercises : [exo as CompletedBaseExercise]; // Type assertion for single exercise
                 subExercises.forEach((subExo: CompletedBaseExercise | CompletedSupersetExercise) => { // Explicitly type `subExo`
                     if (subExo.id === exerciseId) {
                         (subExo.sets || []).forEach((set) => { 
@@ -740,7 +762,7 @@ const TechniqueHighlight = ({ exercise, block }: { exercise: CompletedWorkoutExe
     };
     const techniques: string[] = [];
     // Fix: Use type guard for CompletedWorkoutExercise
-    if ('type' in exercise && exercise.type === 'superset') {
+    if (isCompletedSupersetBlock(exercise)) {
         exercise.exercises.forEach(exo => {
             const tech = getTechniqueForExo(exo);
             if (tech && !techniques.includes(tech)) {
@@ -763,18 +785,19 @@ const SetsTracker = ({ exercise, onSetComplete, onInputChange, onAddBonusSet, bl
     const handleCheck = (set: CompletedSet, setIndex: number, subExoIndex: number = -1) => {
         onSetComplete(!set.completed, setIndex, subExoIndex);
         
-        // Determine the individual exercise for intensification and set checks
-        let individualExoForIntensification: CompletedBaseExercise | CompletedSupersetExercise;
+        // Fix: Use a type guard for explicit type narrowing
+        const individualExoForIntensification = isCompletedSupersetBlock(exercise)
+            ? exercise.exercises[subExoIndex]
+            : (exercise as CompletedBaseExercise);
 
-        // Fix: Use type guard for `exercise` to correctly identify `individualExoForIntensification`
-        if ('type' in exercise && exercise.type === 'superset') {
-            individualExoForIntensification = (exercise as CompletedSupersetBlock).exercises[subExoIndex];
-        } else {
-            individualExoForIntensification = exercise as CompletedBaseExercise;
-        }
-
-        // Fix: Move declaration of nonBonusSets to avoid Temporal Dead Zone (TDZ)
-        // and ensure it refers to the sets of the *individual* exercise.
+        // Fix: Ensure that individualExoForIntensification.sets is accessed with guaranteed type.
+        // The previous error was: Property 'type' does not exist on type 'CompletedWorkoutExercise'.
+        // Property 'type' does not exist on type 'CompletedBaseExercise'.
+        // This is a common TypeScript error when the compiler loses track of type narrowing
+        // after conditional assignments, especially with `let` and union types.
+        // Using a `const` with the ternary operator above helps a lot.
+        // Additionally, for safety, although the types define 'sets' as always present,
+        // a runtime check could be added if `sets` could realistically be missing.
         const nonBonusSets = individualExoForIntensification.sets.filter((s) => !s.isBonus);
         
         if (!set.completed && !set.isBonus && setIndex === nonBonusSets.length - 1) {
@@ -787,6 +810,14 @@ const SetsTracker = ({ exercise, onSetComplete, onInputChange, onAddBonusSet, bl
 
     // Explicitly type `exo` and `subExoIndex`
     const renderIntensificationGuide = (exo: CompletedBaseExercise | CompletedSupersetExercise, subExoIndex: number = -1) => {
+        // Fix: Explicitly check for 'intensification' property to ensure type safety.
+        // Although 'intensification' is optional on BaseExerciseTemplate/SupersetExerciseTemplate,
+        // this guard helps TypeScript's flow analysis in complex scenarios where the union type might cause issues,
+        // especially if it's confusing 'intensification' with a structural 'type' property.
+        if (!exo.intensification) { // Error line 1000 - Simplified condition as 'intensification' property is optional but exists on both types.
+            return null;
+        }
+
         if (!intensificationState.active || intensificationState.type !== exo.intensification || !block) return null;
         
         // Ensure sets are defined before filtering
@@ -800,7 +831,7 @@ const SetsTracker = ({ exercise, onSetComplete, onInputChange, onAddBonusSet, bl
     };
     
     // Fix: Use type guard for exercise
-    if ('type' in exercise && exercise.type === 'superset') {
+    if (isCompletedSupersetBlock(exercise)) {
       // Fix: Ensure there are exercises before accessing sets
       const numSets = exercise.exercises.length > 0 ? exercise.exercises[0].sets.filter(s => !s.isBonus).length : 0;
       return React.createElement("div", { className: "sets-tracker" }, 
@@ -885,7 +916,7 @@ const ActiveWorkoutView = ({ workout, meta, onEndWorkout, getSuggestedWeight }: 
     const [workoutState, setWorkoutState] = useState<CompletedWorkoutExercise[]>(() => 
         workout.exercises.map((exoTemplate) => {
             // Fix: Use type guard for ProgramExerciseTemplate when initializing workoutState
-            if ('type' in exoTemplate && exoTemplate.type === 'superset') {
+            if (isProgramSupersetBlockTemplate(exoTemplate)) {
               const numSets = Math.max(...exoTemplate.exercises.map(e => (e as SupersetExerciseTemplate).sets)); // Use sets from template for numSets
               return { 
                 ...exoTemplate, 
@@ -920,7 +951,7 @@ const ActiveWorkoutView = ({ workout, meta, onEndWorkout, getSuggestedWeight }: 
     const currentBlock = useMemo(() => programData.blocks.find(b => b.weeks.includes(meta.week)) || { id: 0, name: "Phase Initiale", weeks: [], technique: { name: "Technique", desc: "Concentration sur la forme." } }, [meta.week]);
 
     // Fix: Use type guard for currentExercise to access 'sets'
-    const isSupersetBlock = ('type' in currentExercise && currentExercise.type === 'superset');
+    const isSupersetBlock = isCompletedSupersetBlock(currentExercise);
     // Fix: Correctly access sets based on whether it's a superset block or a base exercise
     const setsForActiveCheck = isSupersetBlock ?
         (currentExercise as CompletedSupersetBlock).exercises[0].sets :
@@ -936,7 +967,7 @@ const ActiveWorkoutView = ({ workout, meta, onEndWorkout, getSuggestedWeight }: 
             let targetExoForRestCheck: CompletedBaseExercise | CompletedSupersetBlock; // This will hold the exercise OR the superset block
 
             // Fix: Use type guard for exo
-            if ('type' in exo && exo.type === 'superset') {
+            if (isCompletedSupersetBlock(exo)) {
                 const supersetBlock = exo as CompletedSupersetBlock;
                 if (subExoIndex > -1) {
                     set = supersetBlock.exercises[subExoIndex].sets[setIndex];
@@ -954,7 +985,7 @@ const ActiveWorkoutView = ({ workout, meta, onEndWorkout, getSuggestedWeight }: 
 
             if (isCompleted && targetExoForRestCheck.rest) {
                 // Fix: Use type guard for targetExoForRestCheck
-                if ('type' in targetExoForRestCheck && targetExoForRestCheck.type === 'superset') {
+                if (isCompletedSupersetBlock(targetExoForRestCheck)) {
                     // Check if all exercises in the superset for this setIndex are completed
                     if ((targetExoForRestCheck as CompletedSupersetBlock).exercises.every(e => e.sets[setIndex]?.completed)) {
                         setRestTime(targetExoForRestCheck.rest);
@@ -975,7 +1006,7 @@ const ActiveWorkoutView = ({ workout, meta, onEndWorkout, getSuggestedWeight }: 
         let targetSetContainer: CompletedBaseExercise | CompletedSupersetExercise;
 
         // Fix: Use type guard for newWorkoutState[currentIndex]
-        if ('type' in newWorkoutState[currentIndex] && newWorkoutState[currentIndex].type === 'superset') {
+        if (isCompletedSupersetBlock(newWorkoutState[currentIndex])) {
             targetSetContainer = (newWorkoutState[currentIndex] as CompletedSupersetBlock).exercises[subExoIndex];
         } else {
             targetSetContainer = newWorkoutState[currentIndex] as CompletedBaseExercise;
@@ -988,7 +1019,7 @@ const ActiveWorkoutView = ({ workout, meta, onEndWorkout, getSuggestedWeight }: 
         const newWorkoutState = [...workoutState];
         let targetExo: CompletedBaseExercise | CompletedSupersetExercise;
         // Fix: Use type guard for newWorkoutState[currentIndex]
-        if ('type' in newWorkoutState[currentIndex] && newWorkoutState[currentIndex].type === 'superset') {
+        if (isCompletedSupersetBlock(newWorkoutState[currentIndex])) {
             targetExo = (newWorkoutState[currentIndex] as CompletedSupersetBlock).exercises[subExoIndex];
         } else {
             targetExo = newWorkoutState[currentIndex] as CompletedBaseExercise;
@@ -1099,7 +1130,7 @@ const AnatomyChart = ({ history }: { history: WorkoutHistory }) => {
                         }
                     };
                     // Fix: Use type guard for CompletedWorkoutExercise
-                    if ('type' in exo && exo.type === 'superset') exo.exercises.forEach(processMuscle);
+                    if (isCompletedSupersetBlock(exo)) exo.exercises.forEach(processMuscle);
                     else processMuscle(exo as CompletedBaseExercise); // Type assertion for base exercise
                 });
             }
@@ -1251,7 +1282,7 @@ const MuscleVolumeTrendChart = ({ history }: { history: WorkoutHistory }) => {
                     }
                 };
                 // Fix: Use type guard for CompletedWorkoutExercise
-                if ('type' in exo && exo.type === 'superset') exo.exercises.forEach(processExo);
+                if (isCompletedSupersetBlock(exo)) exo.exercises.forEach(processExo);
                 else processExo(exo as CompletedBaseExercise); // Type assertion for base exercise
             });
         });
@@ -1380,7 +1411,7 @@ const StatisticsView = ({ onSelectExercise, getExercisePR, history }: { onSelect
                         }
                     };
                     // Fix: Use type guard for CompletedWorkoutExercise
-                    if ('type' in exo && exo.type === 'superset') (exo.exercises || []).forEach(processExo);
+                    if (isCompletedSupersetBlock(exo)) (exo.exercises || []).forEach(processExo);
                     else processExo(exo as CompletedBaseExercise); // Type assertion for base exercise
                 });
             });
@@ -1500,7 +1531,7 @@ const ExerciseDetailView = ({ exerciseId, onBack, history, getExercisePR, getBes
         for (const day in programData.workouts) {
             for (const exo of programData.workouts[day].exercises) {
                 // Fix: Use type guard for ProgramExerciseTemplate
-                if ('type' in exo && exo.type === 'superset') {
+                if (isProgramSupersetBlockTemplate(exo)) {
                     const subExo = exo.exercises.find(e => e.id === exerciseId);
                     if (subExo) return subExo;
                 } else if (exo.id === exerciseId) {
@@ -1547,21 +1578,24 @@ const ExerciseDetailView = ({ exerciseId, onBack, history, getExercisePR, getBes
 
 const ExerciseCard = ({ exercise }: { exercise: ProgramExerciseTemplate }) => {
     // Fix: Use type guard for ProgramExerciseTemplate
-    if ('type' in exercise && exercise.type === 'superset') {
+    if (isProgramSupersetBlockTemplate(exercise)) {
         const supersetBlock = exercise as SupersetBlockTemplate; // Explicitly cast for clearer access
+        // Fix: Explicitly define and type the first and second exercises for clearer type inference
+        const firstExercise = supersetBlock.exercises.length > 0 ? supersetBlock.exercises[0] : null;
+        const secondExercise = supersetBlock.exercises.length > 1 ? supersetBlock.exercises[1] : null;
+
         return React.createElement("div", { className: "superset-card" },
             React.createElement("div", { className: "superset-badge" }, "SUPERSET"),
             React.createElement("div", { className: "superset-exercises" },
-                // Fix: Ensure exercises array is not empty before accessing elements
-                supersetBlock.exercises.length > 0 && React.createElement(React.Fragment, null,
+                firstExercise && React.createElement(React.Fragment, null, // Conditionally render if firstExercise exists
                     React.createElement("div", { className: "superset-exercise-item" },
-                        React.createElement("h4", null, supersetBlock.exercises[0].name),
-                        React.createElement("div", { className: "sets-reps" }, supersetBlock.exercises[0].sets, " × ", supersetBlock.exercises[0].reps)
+                        React.createElement("h4", null, firstExercise.name), // Access name on firstExercise (SupersetExerciseTemplate)
+                        React.createElement("div", { className: "sets-reps" }, firstExercise.sets, " × ", firstExercise.reps)
                     ),
-                    supersetBlock.exercises.length > 1 && React.createElement("div", { className: "superset-plus-icon" }, React.createElement(PlusIcon, null)),
-                    supersetBlock.exercises.length > 1 && React.createElement("div", { className: "superset-exercise-item" },
-                        React.createElement("h4", null, supersetBlock.exercises[1].name),
-                        React.createElement("div", { className: "sets-reps" }, supersetBlock.exercises[1].sets, " × ", supersetBlock.exercises[1].reps)
+                    secondExercise && React.createElement("div", { className: "superset-plus-icon" }, React.createElement(PlusIcon, null)),
+                    secondExercise && React.createElement("div", { className: "superset-exercise-item" },
+                        React.createElement("h4", null, secondExercise.name),
+                        React.createElement("div", { className: "sets-reps" }, secondExercise.sets, " × ", secondExercise.reps)
                     )
                 )
             ),
@@ -1600,14 +1634,14 @@ const WorkoutPlannerView = ({ onStartWorkout }: { onStartWorkout: (workout: Work
     const getBicepsName = (w: number) => { const b = programData.blocks.find(bl => bl.weeks.includes(w))?.id; return (b === 1 || b === 3) ? 'Incline Curl' : 'Spider Curl'; };
     workout.exercises.forEach((exo: ProgramExerciseTemplate) => {
         // Fix: Use type guard for ProgramExerciseTemplate to ensure 'name' and 'bicepsRotation' are accessed safely.
-        if ('type' in exo && exo.type === 'superset') {
+        if (isProgramSupersetBlockTemplate(exo)) { // Line 1523 in original file
             const supersetBlock = exo as SupersetBlockTemplate;
             supersetBlock.exercises.forEach((subExo: SupersetExerciseTemplate) => {
                 if (subExo.bicepsRotation) {
                     subExo.name = getBicepsName(currentWeek); 
                 }
             });
-        } else {
+        } else if (isProgramBaseExerciseTemplate(exo)) {
             // In this 'else' branch, 'exo' is correctly narrowed to BaseExerciseTemplate
             const baseExercise = exo as BaseExerciseTemplate;
             if (baseExercise.bicepsRotation) {
