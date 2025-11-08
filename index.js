@@ -82,6 +82,28 @@ const programData = {
 
 const DB_KEY = 'hybridMaster51_data_v4';
 
+/**
+ * Type guard to check if an exercise is a CompletedSupersetBlock.
+ */
+function isCompletedSupersetBlock(exercise) {
+  return exercise.type === 'superset';
+}
+
+/**
+ * Type guard to check if an exercise is a SupersetBlockTemplate.
+ */
+function isProgramSupersetBlockTemplate(exercise) {
+  return exercise.type === 'superset';
+}
+
+/**
+ * Type guard to check if an exercise is a BaseExerciseTemplate.
+ */
+function isProgramBaseExerciseTemplate(exercise) {
+  return !('type' in exercise);
+}
+
+
 const generateMockHistory = () => {
     const mockHistory = {};
     const today = new Date();
@@ -136,7 +158,7 @@ const generateMockHistory = () => {
                         return newCompletedExo;
                     };
 
-                    if ('type' in exoTemplate && exoTemplate.type === 'superset') {
+                    if (isProgramSupersetBlockTemplate(exoTemplate)) {
                         return { 
                             ...exoTemplate, 
                             exercises: exoTemplate.exercises.map(e => processExo(e)) 
@@ -202,7 +224,7 @@ const useWorkoutHistory = () => {
                 }
             };
             workout.exercises.forEach((exo) => { 
-                if ('type' in exo && exo.type === 'superset') {
+                if (isCompletedSupersetBlock(exo)) {
                     exo.exercises.forEach(processExo);
                 } else {
                     processExo(exo);
@@ -229,7 +251,7 @@ const useWorkoutHistory = () => {
                         });
                     }
                 };
-                if ('type' in exo && exo.type === 'superset') exo.exercises.forEach(processExo);
+                if (isCompletedSupersetBlock(exo)) exo.exercises.forEach(processExo);
                 else processExo(exo);
             });
         });
@@ -253,7 +275,7 @@ const useWorkoutHistory = () => {
                         });
                     }
                 };
-                if ('type' in exo && exo.type === 'superset') exo.exercises.forEach(processExo);
+                if (isCompletedSupersetBlock(exo)) exo.exercises.forEach(processExo);
                 else processExo(exo);
             });
         });
@@ -281,7 +303,7 @@ const useWorkoutHistory = () => {
                         });
                     }
                 };
-                if ('type' in exo && exo.type === 'superset') exo.exercises.forEach(processExo);
+                if (isCompletedSupersetBlock(exo)) exo.exercises.forEach(processExo);
                 else processExo(exo);
             });
         });
@@ -307,7 +329,7 @@ const useWorkoutHistory = () => {
                         });
                     }
                 };
-                if ('type' in exo && exo.type === 'superset') exo.exercises.forEach(processExo);
+                if (isCompletedSupersetBlock(exo)) exo.exercises.forEach(processExo);
                 else processExo(exo);
             });
         });
@@ -339,7 +361,7 @@ const useWorkoutHistory = () => {
             };
 
             for (const exo of workout.exercises) {
-                if ('type' in exo && exo.type === 'superset' && exo.exercises) {
+                if (isCompletedSupersetBlock(exo) && exo.exercises) {
                     if (exo.exercises.some(processExo)) return lastLoggedWeight;
                 } else {
                     if (processExo(exo)) return lastLoggedWeight;
@@ -373,7 +395,7 @@ const MuscleGroupHeatmap = ({ workout }) => {
     const workedMuscles = { primary: new Set(), secondary: new Set() };
 
     workout.exercises.forEach(exo => {
-        if (exo.type === 'superset') { // Check for 'type' property
+        if (isProgramSupersetBlockTemplate(exo)) {
             exo.exercises.forEach(subExo => {
                 if (subExo.muscles) {
                     subExo.muscles.primary.forEach(m => workedMuscles.primary.add(m));
@@ -381,9 +403,10 @@ const MuscleGroupHeatmap = ({ workout }) => {
                 }
             });
         } else {
-            if (exo.muscles) {
-                exo.muscles.primary.forEach(m => workedMuscles.primary.add(m));
-                exo.muscles.secondary.forEach(m => workedMuscles.secondary.add(m));
+            const baseExo = exo;
+            if (baseExo.muscles) {
+                baseExo.muscles.primary.forEach(m => workedMuscles.primary.add(m));
+                baseExo.muscles.secondary.forEach(m => workedMuscles.secondary.add(m));
             }
         }
     });
@@ -411,8 +434,7 @@ const ProgressionChart = ({ exerciseId, exerciseName, history }) => {
             if (!w?.exercises) return;
             let maxWeight = 0;
             w.exercises.forEach((exo) => {
-                // Check if exo has 'type' property and it's 'superset'
-                const subExercises = (exo.type === 'superset') ? exo.exercises : [exo];
+                const subExercises = isCompletedSupersetBlock(exo) ? exo.exercises : [exo];
                 subExercises.forEach((subExo) => {
                     if (subExo.id === exerciseId) {
                         (subExo.sets || []).forEach((set) => { 
@@ -566,7 +588,9 @@ const IntensificationStep = ({ title, description, actionText, onAction, timer }
 const TechniqueHighlight = ({ exercise, block }) => {
     if (!block) return null;
     const getTechniqueForExo = (exo) => {
-        if (!exo.intensification) return null; // Access intensification directly (it's optional)
+        if (!exo.intensification) {
+            return null;
+        }
         const techName = block.technique.name.toLowerCase();
         if (techName.includes(exo.intensification.replace('-', ''))) {
             return block.technique.name.split('&')[0].trim();
@@ -574,7 +598,7 @@ const TechniqueHighlight = ({ exercise, block }) => {
         return null;
     };
     const techniques = [];
-    if (exercise.type === 'superset') { // Check for 'type' property
+    if (isCompletedSupersetBlock(exercise)) {
         exercise.exercises.forEach(exo => {
             const tech = getTechniqueForExo(exo);
             if (tech && !techniques.includes(tech)) {
@@ -597,9 +621,8 @@ const SetsTracker = ({ exercise, onSetComplete, onInputChange, onAddBonusSet, bl
     const handleCheck = (set, setIndex, subExoIndex = -1) => {
         onSetComplete(!set.completed, setIndex, subExoIndex);
         
-        // Use property check for 'type' to narrow down exercise type
         let individualExoForIntensification;
-        if (exercise.type === 'superset') { // Check for 'type' property
+        if (isCompletedSupersetBlock(exercise)) {
             individualExoForIntensification = exercise.exercises[subExoIndex];
         } else {
             individualExoForIntensification = exercise;
@@ -608,7 +631,6 @@ const SetsTracker = ({ exercise, onSetComplete, onInputChange, onAddBonusSet, bl
         const nonBonusSets = individualExoForIntensification.sets.filter((s) => !s.isBonus);
         
         if (!set.completed && !set.isBonus && setIndex === nonBonusSets.length - 1) {
-            // Access intensification directly (it's optional)
             if (individualExoForIntensification.intensification) {
                 setIntensificationState({ active: true, type: individualExoForIntensification.intensification, step: 1 });
             }
@@ -616,7 +638,7 @@ const SetsTracker = ({ exercise, onSetComplete, onInputChange, onAddBonusSet, bl
     };
 
     const renderIntensificationGuide = (exo, subExoIndex = -1) => {
-        if (!exo.intensification) { // Access intensification directly (it's optional)
+        if (!exo.intensification) {
             return null;
         }
 
@@ -631,7 +653,7 @@ const SetsTracker = ({ exercise, onSetComplete, onInputChange, onAddBonusSet, bl
         return null;
     };
     
-    if (exercise.type === 'superset') { // Check for 'type' property
+    if (isCompletedSupersetBlock(exercise)) {
       const numSets = exercise.exercises.length > 0 ? exercise.exercises[0].sets.filter(s => !s.isBonus).length : 0;
       return React.createElement("div", { className: "sets-tracker" }, 
         Array.from({ length: numSets }).map((_, setIndex) => {
@@ -713,7 +735,7 @@ const ActiveWorkoutView = ({ workout, meta, onEndWorkout, getSuggestedWeight }) 
     const [restTime, setRestTime] = useState(0);
     const [workoutState, setWorkoutState] = useState(() => 
         workout.exercises.map((exoTemplate) => {
-            if (exoTemplate.type === 'superset') { // Check for 'type' property
+            if (isProgramSupersetBlockTemplate(exoTemplate)) {
               const numSets = Math.max(...exoTemplate.exercises.map(e => e.sets));
               return { 
                 ...exoTemplate, 
@@ -729,13 +751,14 @@ const ActiveWorkoutView = ({ workout, meta, onEndWorkout, getSuggestedWeight }) 
                 })) 
               };
             }
+            const baseExoTemplate = exoTemplate;
             return { 
-                ...exoTemplate, 
-                sets: Array.from({ length: exoTemplate.sets }, (_, i) => ({ 
-                    id: `${exoTemplate.id}-${i}-${Math.random()}`, 
-                    weight: getSuggestedWeight(exoTemplate) || '', 
-                    reps: (exoTemplate.reps || "8").toString().split('-')[0], 
-                    rir: exoTemplate.rir || 1, 
+                ...baseExoTemplate, 
+                sets: Array.from({ length: baseExoTemplate.sets }, (_, i) => ({ 
+                    id: `${baseExoTemplate.id}-${i}-${Math.random()}`, 
+                    weight: getSuggestedWeight(baseExoTemplate) || '', 
+                    reps: (baseExoTemplate.reps || "8").toString().split('-')[0], 
+                    rir: baseExoTemplate.rir || 1, 
                     completed: false 
                 })) 
             };
@@ -744,8 +767,10 @@ const ActiveWorkoutView = ({ workout, meta, onEndWorkout, getSuggestedWeight }) 
     const currentExercise = workoutState[currentIndex];
     const currentBlock = useMemo(() => programData.blocks.find(b => b.weeks.includes(meta.week)) || { id: 0, name: "Phase Initiale", weeks: [], technique: { name: "Technique", desc: "Concentration sur la forme." } }, [meta.week]);
 
-    const isSupersetBlock = (currentExercise.type === 'superset'); // Check for 'type' property
-    const setsForActiveCheck = isSupersetBlock ? currentExercise.exercises[0].sets : currentExercise.sets;
+    const isSupersetBlock = isCompletedSupersetBlock(currentExercise);
+    const setsForActiveCheck = isSupersetBlock ?
+        currentExercise.exercises[0].sets :
+        currentExercise.sets;
     const firstIncompleteSet = setsForActiveCheck.findIndex(s => !s.completed);
     const activeSetIndex = firstIncompleteSet === -1 ? setsForActiveCheck.length : firstIncompleteSet;
 
@@ -756,7 +781,7 @@ const ActiveWorkoutView = ({ workout, meta, onEndWorkout, getSuggestedWeight }) 
             let set;
             let targetExoForRestCheck;
 
-            if (exo.type === 'superset') { // Check for 'type' property
+            if (isCompletedSupersetBlock(exo)) {
                 const supersetBlock = exo;
                 if (subExoIndex > -1) {
                     set = supersetBlock.exercises[subExoIndex].sets[setIndex];
@@ -765,13 +790,14 @@ const ActiveWorkoutView = ({ workout, meta, onEndWorkout, getSuggestedWeight }) 
                 }
                 targetExoForRestCheck = supersetBlock;
             } else {
-                set = exo.sets[setIndex];
-                targetExoForRestCheck = exo;
+                const baseExercise = exo;
+                set = baseExercise.sets[setIndex];
+                targetExoForRestCheck = baseExercise;
             }
             set.completed = isCompleted;
 
             if (isCompleted && targetExoForRestCheck.rest) {
-                if (targetExoForRestCheck.type === 'superset') { // Check for 'type' property
+                if (isCompletedSupersetBlock(targetExoForRestCheck)) {
                     if (targetExoForRestCheck.exercises.every(e => e.sets[setIndex]?.completed)) {
                         setRestTime(targetExoForRestCheck.rest);
                         setIsResting(true);
@@ -790,7 +816,7 @@ const ActiveWorkoutView = ({ workout, meta, onEndWorkout, getSuggestedWeight }) 
         const newWorkoutState = JSON.parse(JSON.stringify(workoutState));
         let targetSetContainer;
 
-        if (newWorkoutState[currentIndex].type === 'superset') { // Check for 'type' property
+        if (isCompletedSupersetBlock(newWorkoutState[currentIndex])) {
             targetSetContainer = newWorkoutState[currentIndex].exercises[subExoIndex];
         } else {
             targetSetContainer = newWorkoutState[currentIndex];
@@ -802,7 +828,7 @@ const ActiveWorkoutView = ({ workout, meta, onEndWorkout, getSuggestedWeight }) 
     const handleAddBonusSet = (newSet, subExoIndex = -1) => {
         const newWorkoutState = [...workoutState];
         let targetExo;
-        if (newWorkoutState[currentIndex].type === 'superset') { // Check for 'type' property
+        if (isCompletedSupersetBlock(newWorkoutState[currentIndex])) {
             targetExo = newWorkoutState[currentIndex].exercises[subExoIndex];
         } else {
             targetExo = newWorkoutState[currentIndex];
@@ -891,7 +917,7 @@ const SevenDayStreak = ({ history }) => {
 
 
 const AnatomyChart = ({ history }) => {
-    const [view, setView] = useState('front'); // 'front' or 'back'
+    const [view, setView] = useState('front');
 
     const workedMusclesLast7Days = useMemo(() => {
         const muscles = new Set();
@@ -907,7 +933,7 @@ const AnatomyChart = ({ history }) => {
                             subExo.muscles.secondary.forEach(m => muscles.add(m));
                         }
                     };
-                    if (exo.type === 'superset') exo.exercises.forEach(processMuscle); // Check for 'type' property
+                    if (isCompletedSupersetBlock(exo)) exo.exercises.forEach(processMuscle);
                     else processMuscle(exo);
                 });
             }
@@ -1052,7 +1078,7 @@ const MuscleVolumeTrendChart = ({ history }) => {
                         });
                     }
                 };
-                if (exo.type === 'superset') exo.exercises.forEach(processExo); // Check for 'type' property
+                if (isCompletedSupersetBlock(exo)) exo.exercises.forEach(processExo);
                 else processExo(exo);
             });
         });
@@ -1177,7 +1203,7 @@ const StatisticsView = ({ onSelectExercise, getExercisePR, history }) => {
                             });
                         }
                     };
-                    if (exo.type === 'superset') (exo.exercises || []).forEach(processExo); // Check for 'type' property
+                    if (isCompletedSupersetBlock(exo)) (exo.exercises || []).forEach(processExo);
                     else processExo(exo);
                 });
             });
@@ -1292,7 +1318,7 @@ const ExerciseDetailView = ({ exerciseId, onBack, history, getExercisePR, getBes
     const exercise = useMemo(() => {
         for (const day in programData.workouts) {
             for (const exo of programData.workouts[day].exercises) {
-                if (exo.type === 'superset') { // Check for 'type' property
+                if (isProgramSupersetBlockTemplate(exo)) {
                     const subExo = exo.exercises.find(e => e.id === exerciseId);
                     if (subExo) return subExo;
                 } else if (exo.id === exerciseId) {
@@ -1338,7 +1364,7 @@ const ExerciseDetailView = ({ exerciseId, onBack, history, getExercisePR, getBes
 
 
 const ExerciseCard = ({ exercise }) => {
-    if (exercise.type === 'superset') { // Check for 'type' property
+    if (isProgramSupersetBlockTemplate(exercise)) {
         const supersetBlock = exercise;
         const firstExercise = supersetBlock.exercises.length > 0 ? supersetBlock.exercises[0] : null;
         const secondExercise = supersetBlock.exercises.length > 1 ? supersetBlock.exercises[1] : null;
@@ -1389,18 +1415,17 @@ const WorkoutPlannerView = ({ onStartWorkout }) => {
     let workout = JSON.parse(JSON.stringify(originalWorkout));
     const getBicepsName = (w) => { const b = programData.blocks.find(bl => bl.weeks.includes(w))?.id; return (b === 1 || b === 3) ? 'Incline Curl' : 'Spider Curl'; };
     workout.exercises.forEach((exo) => {
-        // Use property check for 'type' to narrow down exercise type
-        if (exo.type === 'superset') { // Check for 'type' property
+        if (isProgramSupersetBlockTemplate(exo)) {
             const supersetBlock = exo;
             supersetBlock.exercises.forEach((subExo) => {
-                if (subExo.bicepsRotation) { // bicepsRotation is optional
+                if (subExo.bicepsRotation) {
                     subExo.name = getBicepsName(currentWeek); 
                 }
             });
-        } else {
+        } else if (isProgramBaseExerciseTemplate(exo)) {
             const baseExercise = exo;
-            if (baseExercise.bicepsRotation) { // bicepsRotation is optional
-                baseExercise.name = getBicepsName(currentWeek);
+            if (baseExercise.bicepsRotation) {
+                baseExercise.name = getBicepsName(currentWeek); 
             }
         }
     });
